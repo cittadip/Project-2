@@ -65,7 +65,6 @@ int buttonBeingCompared    = 0;
 int codeSequence[NUMBER_OF_KEYS]   = { 1, 1, 0, 0 };
 int buttonsPressed[NUMBER_OF_KEYS] = { 0, 0, 0, 0 };
 int accumulatedTimeAlarm = 0;
-int lm35SampleIndex      = 0;
 
 bool gasDetectorState          = OFF;
 bool overTempDetectorState     = OFF;
