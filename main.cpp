@@ -1,6 +1,7 @@
-// This program simulates an enhanced vehicle alarm system with various safety features.
-// It uses input signals to detect driver and passenger presence, seatbelt fastening,
-// and ignition button presses, and outputs status via LEDs and UART messages.
+// This program simulates an enhanced vehicle alarm system with various safety
+// features. It uses input signals to detect driver and passenger presence,
+// seatbelt fastening, and ignition button presses, and outputs status via LEDs
+// and UART messages.
 
 //=====[Libraries]=============================================================
 
@@ -19,14 +20,15 @@ DigitalOut greenIndicator(LED1);
 DigitalInOut sirenPin(PE_10);
 DigitalOut blueIndicator(LED2);
 
-UnbufferedSerial uartUsb(USBTX, USBRX, 115200); 
+UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 // UART interface for communication with a computer or external device
 // USBTX and USBRX represent transmit and receive pins, respectively
 // 115200 is the baud rate for serial communication
 
 //=====[Declaration and initialization of public global variables]=============
 
-int introComplete = false; // Tracks whether the welcome message for the driver has been displayed
+int introComplete = false; // Tracks whether the welcome message for the driver
+                           // has been displayed
 
 //=====[Declarations (prototypes) of public functions]=========================
 
@@ -62,8 +64,101 @@ void outputsInit() {
   sirenPin.input();
 
   // Ensure all indicators are off initially
-  blueIndicator = OFF; // Blue LED: Indicates engine running
+  blueIndicator = OFF;  // Blue LED: Indicates engine running
   greenIndicator = OFF; // Green LED: Indicates safe state for operation
+}
+
+/*
+activates when the ignition button is pressed and acts based on a case-to-case
+basis Ex. uart messages are printed based on which buttons are not pressed to
+start the engine if all buttons are pressed the engine will start
+*/
+void ignitionCase() {
+  if (ignitionButton) {
+    // Check if all required conditions are met for engine start
+    if (driverPresent && passengerPresent && driverSeatbelt &&
+        passengerSeatbelt) {
+      uartCommands(2);
+
+      // Turn off the green indicator and activate the blue indicator
+      greenIndicator = OFF;
+      blueIndicator = ON;
+
+      // Infinite loop to simulate engine running; stops further program execution
+      while (true) {
+      }
+    } else {
+      // Display ignition failure message and reasons via UART
+      // Report individual reasons for failure
+      uartCommands(1);
+      sirenPin.output();
+      sirenPin = LOW; // Activate siren signal
+
+      // Infinite loop to halt the program in a failed state
+      while (true) {
+      }
+    }
+  }
+}
+
+/*
+prints the introduction string in uart when the driver is first present
+*/
+void driverIntroduction() {
+  if (driverPresent && !introComplete) {
+    // Display the welcome message via UART if the driver is detected for the first time
+    uartCommands(0);
+    introComplete = true;
+  }
+}
+
+/*
+prints the introduction string in uart when the driver is first present
+*/
+void uartCommands(int i) {
+  switch (i) {
+  case 0:
+    uartUsb.write("\nWelcome to enhanced alarm system model 218-W24", 46);
+    break;
+
+  case 1:
+    uartUsb.write("\nEngine started.", 15);
+    break;
+  case 2:
+    uartUsb.write("\nIgnition inhibited", 19);
+    uartUsb.write("\nReasons:", 9);
+
+    if (!driverPresent) {
+      uartUsb.write("\nDriver not present.", 20);
+    }
+    if (!passengerPresent) {
+      uartUsb.write("\nPassenger not present.", 23);
+    }
+    if (!driverSeatbelt) {
+      uartUsb.write("\nDriver Seatbelt not fastened.", 30);
+    }
+    if (!passengerSeatbelt) {
+      uartUsb.write("\nPassenger Seatbelt not fastened.", 33);
+    }
+    break;
+  default:
+  }
+}
+
+/*
+tells the program what state the code is in; if green led should be on/off
+and/or ignition pressed
+*/
+void drivingState() {
+  // The green indicator lights up when all safety conditions (driver and
+  // passenger present, seatbelts fastened) are met, indicating that the vehicle
+  // is in a safe state to operate.
+  if (driverPresent && passengerPresent && driverSeatbelt &&
+      passengerSeatbelt) {
+    greenIndicator = ON; // All conditions met, safe state
+  } else {
+    greenIndicator = OFF; // One or more conditions not met, unsafe state
+  }
 }
 
 //=====[Main function, the program entry point after power on or reset]========
@@ -77,76 +172,5 @@ int main() {
     driverIntroduction(); // Display welcome message if the driver is detected
     drivingState();       // Update driving indicators based on safety inputs
     ignitionCase();       // Handle ignition logic and system response
-  }
-}
-
-//=====[Implementations of public functions]===================================
-
-/*
-activates when the ignition button is pressed and acts based on a case-to-case basis
-Ex. uart messages are printed based on which buttons are not pressed to start the engine
-if all buttons are pressed the engine will start
-*/
-void ignitionCase() {
-  if (ignitionButton) {
-    // Check if all required conditions are met for engine start
-    if (driverPresent && passengerPresent && driverSeatbelt && passengerSeatbelt) {
-      uartUsb.write("\nEngine started.", 15);
-
-      // Turn off the green indicator and activate the blue indicator
-      greenIndicator = OFF;
-      blueIndicator = ON;
-
-      // Infinite loop to simulate engine running; stops further program execution
-      while (true) {} 
-    }
-    else {
-      // Display ignition failure message and reasons via UART
-      uartUsb.write("\nIgnition inhibited", 19);
-      uartUsb.write("\nReasons:", 9); 
-      sirenPin.output();
-      sirenPin = LOW; // Activate siren signal
-
-      // Report individual reasons for failure
-      if (!driverPresent) {
-        uartUsb.write("\nDriver not present.", 20);
-      }
-      if (!passengerPresent) {
-        uartUsb.write("\nPassenger not present.", 23);
-      }
-      if (!driverSeatbelt) {
-        uartUsb.write("\nDriver Seatbelt not fastened.", 30);
-      }
-      if (!passengerSeatbelt) {
-        uartUsb.write("\nPassenger Seatbelt not fastened.", 33);
-      }
-
-      // Infinite loop to halt the program in a failed state
-      while (true) {} 
-    }
-  }
-}
-
-/*
-prints the introduction string in uart when the driver is first present
-*/
-void driverIntroduction() {
-  if (driverPresent && !introComplete) {
-    // Display the welcome message via UART if the driver is detected for the first time
-    uartUsb.write("\nWelcome to enhanced alarm system model 218-W24", 46);
-    introComplete = true;
-  }
-}
-
-/*
-tells the program what state the code is in; if green led should be on/off and/or ignition pressed
-*/
-void drivingState() {
-  // The green indicator lights up when all safety conditions (driver and passenger present,
-  // seatbelts fastened) are met, indicating that the vehicle is in a safe state to operate.
-  if (driverPresent && passengerPresent && driverSeatbelt && passengerSeatbelt) {
-    greenIndicator = ON; // All conditions met, safe state
-  } else {
-    greenIndicator = OFF; // One or more conditions not met, unsafe state
   }
 }
