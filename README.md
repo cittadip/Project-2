@@ -5,7 +5,7 @@
 ## Project Description 
 The goal of the project was to create an automatic headlight system that contained all the safety features from Project 1.
 
-Project 1: 
+Project 1: \
 Before the user can even access the automatic headlight system, the vehicle must be started under strict conditions.
 These conditions include both the passenger and the driver being seated in the vehicle, with their seatbelts fastened.
 Under these conditions, the user can successfully start the vehicle, making the automatic headlight system possible.
