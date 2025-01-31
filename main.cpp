@@ -8,12 +8,17 @@
 
 #include "arm_book_lib.h"
 #include "mbed.h"
+#include <string>
 
 //=====[Defines]===============================================================
 
 #define UART_INTRO_KEY 0
 #define UART_ENGINE_KEY 1
 #define UART_ERROR_KEY 2
+
+#define HEADLIGHT_OFF 3
+#define HEADLIGHT_AUTO 4
+#define HEADLIGHT_ON 5
 
 //=====[Declaration and initialization of public global objects]===============
 
@@ -40,11 +45,11 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 int introComplete = false; // Tracks whether the welcome message for the driver
                            // has been displayed
-bool ignitionState = OFF;
+bool ignitionButtonState = OFF;
 float potentiometerReading = 0.0;
 float potentiometerReadingScaled = 0.0;
 float lightReading = 0.0;
-bool ignitionPrevious = OFF;
+bool ignitionPrevious = ON;
 
 //=====[Declarations (prototypes) of public functions]=========================
 
@@ -57,7 +62,9 @@ void headlightState();
 void headlightAuto();
 void headlightOff();
 void headlightOn();
-string potentiometerValue();
+int potentiometerValue();
+void ignitionState();
+void uartCommands(int cmd);
 
 //=====[Implementations of public functions]===================================
 
@@ -76,26 +83,20 @@ void outputsInit() {
   blueIndicator = OFF;  // Blue LED: Indicates engine running
   greenIndicator = OFF; // Green LED: Indicates safe state for operation
 }
-
-void buttonReleased() {
-    if (ignitionButton == ON && ignitionPrevious = ignitionButton) {
-        unsigned long start = millis();
-    }
-    if (ignitionButton == OFF && ignitionPrevious == ON) {
-         
-    }
-
-    ignitionPrevious = ignitionButton;
-}
+bool waitForRelease = false; 
 
 void ignitionState() {
-    if (ignitionButton) {
-        ignitionPrevious = ignitionButton;
-        delay(20);
-    }
-    if (ignitionButton == ignitionPrevious) {
-        ignitionState = !ignitionState;
-    }
+    if (!ignitionButton && ignitionPrevious) {
+        if (!waitForRelease) {
+            ignitionButtonState = !ignitionButtonState;
+            waitForRelease = true;
+      }
+    
+}
+if (ignitionButton == 1 && ignitionPrevious == 0) {
+          waitForRelease = false;
+      }
+ignitionPrevious = ignitionButton;
 }
 
 /*
@@ -104,48 +105,46 @@ basis Ex. uart messages are printed based on which buttons are not pressed to
 start the engine if all buttons are pressed the engine will start
 */
 void ignitionCase() {
-    // maybe change the if statement to look for a button release
-  if (ignitionButton) {
+  // maybe change the if statement to look for a button release
+  ignitionState();
+  if (!ignitionButtonState) {
     // Check if all required conditions are met for engine start
     if (driverPresent && passengerPresent && driverSeatbelt &&
         passengerSeatbelt) {
       uartCommands(UART_ENGINE_KEY);
-        delay(500);
-      
 
-      //** CHANGE THIS**
-      // implement case to look for key press and release
-
-      //maybe another do while loop
-        do {
-            // Turn off the green indicator and activate the blue indicator
-            greenIndicator = OFF;
-            //  keep on blue led 
-            blueIndicator = ON;
-            sirenPin.input();
-            //  also check for headlights settings here
-            ignitionState();
-            headlightState();
-         } 
-         while (!ignitionState);
-        // if engine is off the headlights should be turned off
+      // maybe another do while loop
+      do {
+        // Turn off the green indicator and activate the blue indicator
+        greenIndicator = OFF;
+        //  keep on blue led
+        blueIndicator = ON;
+        sirenPin.input();
+        //  also check for headlights settings here
+        ignitionState();
+        headlightState();
+      } while (!ignitionButtonState);
+      blueIndicator = OFF;
+      headlightOff();
+      // if engine is off the headlights should be turned off
     } else {
       // Display ignition failure message and reasons via UART
       // Report individual reasons for failure
       uartCommands(UART_ERROR_KEY);
 
       do {
-      sirenPin.output();
-      sirenPin = LOW; // Activate siren signal
-      }
-      while (!(driverPresent && passengerPresent && driverSeatbelt &&
-             passengerSeatbelt));
-      }
+        sirenPin.output();
+        sirenPin = LOW; // Activate siren signal
+        drivingState();
+      } while (!(driverPresent && passengerPresent && driverSeatbelt &&
+                 passengerSeatbelt));
     }
   }
+}
 
 /*
-prints the introduction string in uart when the driver detected for the first time
+prints the introduction string in uart when the driver detected for the first
+time
 */
 void driverIntroduction() {
   if (driverPresent && !introComplete) {
@@ -184,6 +183,7 @@ void uartCommands(int cmd) {
     }
     break;
   default:
+    break;
   }
 }
 
@@ -196,79 +196,69 @@ passenger present, seatbelts fastened) are met, indicating that the vehicle
 is in a safe state to operate.
 */
 void drivingState() {
-    driverIntroduction();
+  driverIntroduction();
   if (driverPresent && passengerPresent && driverSeatbelt &&
       passengerSeatbelt) {
     greenIndicator = ON; // All conditions met, safe state
-  } 
-  else {
+  } else {
     greenIndicator = OFF; // One or more conditions not met, unsafe state
   }
 }
 
-typedef struct Controller {
-//    do all the potentiometer initializations either at the top or near here
-   int pin;
-   int val;
-   string state;
+int potentiometerValue() {
+  int state;
+  float reading = headlightKnob.read();
+  float val = reading / 0.1;
 
-   reading = pin.read();
-   val =  reading * 3.3 / 0.01;
+  if (val >= 6) {
+    state = HEADLIGHT_OFF;
+  } else if (val > 3 && val <= 6) {
+    state = HEADLIGHT_AUTO;
+  } else {
+    state = HEADLIGHT_ON;
+  }
 
-   if (val <= 30) { 
-     state = "off";
-   }
-    else if (val > 30 || val < = 60) {
-    state = "auto";
-    }
-    else { 
-    state = "on";
-    }
-} Controller;
-
-string potentiometerValue() {
-     Controller headlightMode;
-     headlightMode.pin = headlightKnob;
-     return headlightMode.state;
+  return state;
 }
 
 void headlightState() {
-    switch (potentiometerValue()) {
-    case "auto":
-        headlightAuto();
-        break;
-    case "off":
-        headlightOff();
-        break;
-    case "on":
-        headlightsOn();
-        break;
-    }
+  switch (potentiometerValue()) {
+  case HEADLIGHT_AUTO:
+    headlightAuto();
+    break;
+  case HEADLIGHT_OFF:
+  delay(2000);
+    headlightOff();
+    break;
+  case HEADLIGHT_ON:
+  delay(1000);
+    headlightOn();
+    break;
+  }
 }
 
 void headlightAuto() {
-    // if the light sensor is below dusk level;
-    lightReading = lightReader.read();
-    lightReading = lightReading / .01;
+  // if the light sensor is below dusk level;
+  lightReading = lightReader.read();
+  lightReading = lightReading / .1;
 
-        if (lightReading < 7) {
-            headlightsOn();
-        }
-        else {
-            headlightOff();
-        }
+  if (lightReading < 8) {
+    headlightOn();
+  } else {
+    headlightOff();
+  }
 }
 
 void headlightOff() {
-    delay(2000);
-    headlightLeft = OFF;
-    headlightRight = OFF;
+  
+  headlightLeft = OFF;
+  headlightRight = OFF;
 }
 
 void headlightOn() {
-    delay(1000);
-    headlightLeft = ON;
-    headlightRight = ON;
+  
+  headlightLeft = ON;
+  headlightRight = ON;
 }
 
 //=====[Main function, the program entry point after power on or reset]========
@@ -279,7 +269,13 @@ int main() {
 
   // Main loop: Continuously check and update system states
   while (true) {
-    drivingState();       // Update driving indicators based on safety inputs
-    ignitionCase();       // Handle ignition logic and system response
+    drivingState(); // Update driving indicators based on safety inputs
+    ignitionCase(); // Handle ignition logic and system response
   }
 }
+
+//     char str[100] = "";
+//     sprintf ( str, "%.2f \r\n",
+//                     lightReading );
+//     int stringLength = strlen(str);
+//      uartUsb.write(str, stringLength);
