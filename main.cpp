@@ -12,29 +12,30 @@
 
 //=====[Defines]===============================================================
 
-//uart macros
+// uart macros
 #define UART_INTRO_KEY 0
 #define UART_ENGINE_KEY 1
 #define UART_ERROR_KEY 2
 
-//headlight macros
+// headlight macros
 #define HEADLIGHT_OFF 3
 #define HEADLIGHT_AUTO 4
 #define HEADLIGHT_ON 5
 
-//headlight delay macros
+// headlight delay macros
 #define HEADLIGHT_ON_DELAY 1000
 #define HEADLIGHT_OFF_DELAY 2000
 
-//light sensor macros
+// light sensor macros
 #define DUSK 8
 
-//potentiometer macros
+// potentiometer macros
 #define LEFT_LIMIT 6
 #define RIGHT_LIMIT 3
 
 //=====[Declaration and initialization of public global objects]===============
 
+DigitalIn highbeamsSwitch(D1);
 DigitalIn driverPresent(D2);
 DigitalIn passengerPresent(D3);
 DigitalIn driverSeatbelt(D4);
@@ -46,8 +47,8 @@ AnalogIn lightReader(A1);
 DigitalOut greenIndicator(LED1);
 DigitalInOut sirenPin(PE_10);
 DigitalOut blueIndicator(LED2);
-DigitalOut headlightLeft(D6);
-DigitalOut headlightRight(D7);
+DigitalOut headlights(D6);
+DigitalOut highbeams(D7);
 
 UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 // UART interface for communication with a computer or external device
@@ -58,8 +59,6 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 int introComplete = false; // Tracks whether the welcome message for the driver
                            // has been displayed
-bool ignitionButtonState = OFF; //******* try ON first (but also change the vals
-                                //in ignitionCase to not be "!")
 
 float potentiometerReading = 0.0;
 float potentiometerReadingScaled = 0.0;
@@ -67,8 +66,9 @@ float potentiometerReadingScaled = 0.0;
 float lightReading = 0.0;
 
 // variables used in tracking the falling edge of the ignition button
+bool ignitionButtonState = OFF; 
 bool ignitionPrevious = ON;
-bool waitForRelease = false;
+bool waitForRelease = true;
 
 //=====[Declarations (prototypes) of public functions]=========================
 
@@ -108,14 +108,14 @@ Tracks the falling edge of the ignition button
 Allows for the ignition button to turn the engine off on release
 */
 void ignitionState() {
-  if (!ignitionButton && ignitionPrevious) {
-    if (!waitForRelease) {
+  if (ignitionButton && !ignitionPrevious) {
+    if (waitForRelease) {
       ignitionButtonState = !ignitionButtonState;
-      waitForRelease = true;
+      waitForRelease = false;
     }
   }
-  if (ignitionButton && !ignitionPrevious) {
-    waitForRelease = false;
+  if (!ignitionButton && ignitionPrevious) {
+    waitForRelease = true;
   }
   ignitionPrevious = ignitionButton;
 }
@@ -128,7 +128,7 @@ start the engine if all buttons are pressed the engine will start
 void ignitionCase() {
   // maybe change the if statement to look for a button release
   ignitionState();
-  if (!ignitionButtonState) {
+  if (ignitionButtonState) {
     // Check if all required conditions are met for engine start
     if (driverPresent && passengerPresent && driverSeatbelt &&
         passengerSeatbelt) {
@@ -146,7 +146,7 @@ void ignitionCase() {
         //  also check for headlights settings here
         ignitionState();
         headlightState();
-      } while (!ignitionButtonState);
+      } while (ignitionButtonState);
 
       // if engine is off the headlights and blue indicator should be turned off
       blueIndicator = OFF;
@@ -164,6 +164,7 @@ void ignitionCase() {
         drivingState();
       } while (!(driverPresent && passengerPresent && driverSeatbelt &&
                  passengerSeatbelt));
+      ignitionButtonState = OFF;
     }
   }
 }
@@ -263,11 +264,9 @@ void headlightState() {
     headlightAuto();
     break;
   case HEADLIGHT_OFF:
-    delay(HEADLIGHT_OFF_DELAY);
     headlightOff();
     break;
   case HEADLIGHT_ON:
-    delay(HEADLIGHT_ON_DELAY);
     headlightOn();
     break;
   }
@@ -282,26 +281,36 @@ void headlightAuto() {
   lightReading = lightReading / .1;
 
   if (lightReading < DUSK) {
+      delay(HEADLIGHT_ON_DELAY);
     headlightOn();
   } else {
+      delay(HEADLIGHT_OFF_DELAY);
     headlightOff();
   }
 }
 
 /*
 turns the headlights off
+turns highbeams off 
 */
 void headlightOff() {
-  headlightLeft = OFF;
-  headlightRight = OFF;
+  headlights = OFF;
+  highbeams = OFF;
 }
 
 /*
 turns headlights on
+turns on high beams if the manual high beam switch is on
 */
 void headlightOn() {
-  headlightLeft = ON;
-  headlightRight = ON;
+  headlights = ON;
+
+  if (highbeamsSwitch) {
+    highbeams = ON;
+  }
+  else {
+      highbeams = OFF;
+  }
 }
 
 //=====[Main function, the program entry point after power on or reset]========
@@ -316,3 +325,9 @@ int main() {
     ignitionCase(); // Handle ignition logic and system response
   }
 }
+
+//     char str[100] = "";
+//     sprintf ( str, "%.2f \r\n",
+//                     lightReading );
+//     int stringLength = strlen(str);
+//      uartUsb.write(str, stringLength);
