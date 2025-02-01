@@ -134,16 +134,15 @@ void ignitionCase() {
         passengerSeatbelt) {
       uartCommands(UART_ENGINE_KEY);
 
-      // this loop does 1 loop of all the functions that would occur if when the
-      // engine is on before checking if the button was pushes and released
-      // again
+      // this loop does 1 loop of all the functions that would occur if the
+      // engine were on before checking if the button was pushes and released again
       do {
         // Turn off the green indicator and activate the blue indicator
         greenIndicator = OFF;
         //  keep on blue led
         blueIndicator = ON;
         sirenPin.input();
-        //  also check for headlights settings here
+        //  also check for headlights settings and if the ignition is pressed and released here
         ignitionState();
         headlightState();
       } while (ignitionButtonState);
@@ -234,7 +233,7 @@ void drivingState() {
 /*
 takes the potentiometer data and turns that into the select headlight mode
 left = off, mid = auto, right = on
-@return state of headlight in the form of a constant int variable
+@return state of headlight in the form of an integer variable
 */
 int headlightMode() {
   int state;
@@ -276,14 +275,15 @@ void headlightState() {
 toggles between turning the headlights on or off depending on how dark it is
 */
 void headlightAuto() {
-  // if the light sensor is below dusk level;
   lightReading = lightReader.read();
   lightReading = lightReading / .1;
-
+  
+  // if the light sensor is below dusk level, turn on the lights
   if (lightReading < DUSK) {
       delay(HEADLIGHT_ON_DELAY);
     headlightOn();
   } else {
+  // if the light sensor is above dusk level, turn off the lights
       delay(HEADLIGHT_OFF_DELAY);
     headlightOff();
   }
